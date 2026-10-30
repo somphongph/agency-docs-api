@@ -1,0 +1,93 @@
+info:
+  name: Get Dashboard
+  type: http
+  seq: 1
+
+http:
+  method: GET
+  url: "{{baseUrl}}/api/v1/dashboard"
+  headers:
+    - name: Accept
+      value: application/json
+
+docs: |-
+  Returns a brand new random dataset on every call (no database, nothing cached).
+
+  ## Contract
+
+  - `updatedAt`: ISO-8601 with the Asia/Bangkok (+07:00) offset
+  - `regions`: 8 regions in a fixed order, each with `submit` / `approved` / `pending`
+  - every status group has `daily` / `mtd` / `ytd`, each with `cases` (integer >= 0) and `anp` (mb, 2 decimals)
+  - `overall`: the same row shape, equal to the column-by-column sum of every region
+
+  The tests below verify the contract, including the OVERALL invariant.
+
+  Send the request twice to see that every call generates fresh numbers.
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const body = res.getBody();
+        const groups = ['submit', 'approved', 'pending'];
+        const periods = ['daily', 'mtd', 'ytd'];
+        const expectedRegions = ['BKK-A', 'BKK-B', 'Central', 'West', 'South', 'North', 'Northeast', 'Other'];
+
+        const hundredths = (value) => Math.round(Number(value) * 100);
+        const isTwoDecimals = (value) => Math.abs(hundredths(value) - Number(value) * 100) < 1e-6;
+
+        test('responds with 200 and JSON', function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getHeader('content-type')).to.contain('application/json');
+        });
+
+        test('is not cached', function () {
+          expect(res.getHeader('cache-control')).to.contain('no-store');
+        });
+
+        test('uses the Asia/Bangkok offset for updatedAt', function () {
+          expect(body.updatedAt).to.match(/\+07:00$/);
+          expect(Number.isNaN(new Date(body.updatedAt).getTime())).to.equal(false);
+        });
+
+        test('returns the 8 regions in order plus OVERALL', function () {
+          expect(body.regions.map((row) => row.region)).to.deep.equal(expectedRegions);
+          expect(body.overall.region).to.equal('OVERALL');
+        });
+
+        test('returns non-negative integer cases and two-decimal ANP values', function () {
+          body.regions.forEach((row) => {
+            groups.forEach((group) => {
+              periods.forEach((period) => {
+                const cell = row[group][period];
+                expect(Number.isInteger(cell.cases)).to.equal(true);
+                expect(cell.cases).to.be.at.least(0);
+                expect(cell.anp).to.be.at.least(0);
+                expect(isTwoDecimals(cell.anp)).to.equal(true);
+              });
+            });
+          });
+        });
+
+        test('keeps daily <= mtd <= ytd per region', function () {
+          body.regions.forEach((row) => {
+            groups.forEach((group) => {
+              expect(row[group].mtd.cases).to.be.at.least(row[group].daily.cases);
+              expect(row[group].ytd.cases).to.be.at.least(row[group].mtd.cases);
+              expect(row[group].mtd.anp).to.be.at.least(row[group].daily.anp);
+              expect(row[group].ytd.anp).to.be.at.least(row[group].mtd.anp);
+            });
+          });
+        });
+
+        test('OVERALL equals the sum of every region', function () {
+          groups.forEach((group) => {
+            periods.forEach((period) => {
+              const cases = body.regions.reduce((sum, row) => sum + row[group][period].cases, 0);
+              const anp = body.regions.reduce((sum, row) => sum + hundredths(row[group][period].anp), 0);
+
+              expect(body.overall[group][period].cases).to.equal(cases);
+              expect(hundredths(body.overall[group][period].anp)).to.equal(anp);
+            });
+          });
+        });
