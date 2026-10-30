@@ -1,0 +1,62 @@
+info:
+  name: Refresh Dashboard
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{endpoint}}/api/v1/dashboard/refresh"
+  headers:
+    - name: Accept
+      value: application/json
+
+docs: |-
+  Generates a new random dataset with the configured ranges (same generator as before), makes it
+  the current snapshot, and pushes it to every browser connected to
+  `GET /api/v1/dashboard/stream` as a `dashboard` SSE event.
+
+  The new snapshot is also returned in the standard envelope, so a script can use it without
+  opening the stream:
+
+  ```json
+  { "success": true, "type": "success", "message": "Successful.", "data": { ... } }
+  ```
+
+  Call `Get Dashboard` afterwards to confirm it now returns this dataset.
+
+runtime:
+  scripts:
+    - type: tests
+      code: |-
+        const envelope = res.getBody();
+        const body = envelope.data;
+        const expectedRegions = ['BKK-A', 'BKK-B', 'Central', 'West', 'South', 'North', 'Northeast', 'Other'];
+
+        test('responds with 200 and JSON', function () {
+          expect(res.getStatus()).to.equal(200);
+          expect(res.getHeader('content-type')).to.contain('application/json');
+        });
+
+        test('wraps the new snapshot in the standard envelope', function () {
+          expect(envelope.success).to.equal(true);
+          expect(envelope.type).to.equal('success');
+          expect(envelope.message).to.equal('Successful.');
+          expect(body).to.be.an('object');
+        });
+
+        test('returns a complete dashboard snapshot', function () {
+          expect(body.regions.map((row) => row.region)).to.deep.equal(expectedRegions);
+          expect(body.overall.region).to.equal('OVERALL');
+          expect(body.updatedAt).to.match(/\+07:00$/);
+        });
+
+        test('keeps the OVERALL invariant after the refresh', function () {
+          const groups = ['submit', 'approved', 'pending'];
+          const periods = ['daily', 'mtd', 'ytd'];
+          groups.forEach((group) => {
+            periods.forEach((period) => {
+              const cases = body.regions.reduce((sum, row) => sum + row[group][period].cases, 0);
+              expect(body.overall[group][period].cases).to.equal(cases);
+            });
+          });
+        });
