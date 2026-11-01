@@ -1,0 +1,5 @@
+name: local - cloud
+variables:
+  - name: endpoint
+    value: https://ag-e885f2d745064887a1c69438a79ce54e.ecs.ap-southeast-7.on.aws
+    description: Spring Boot backend running locally (mvnw spring-boot:run)

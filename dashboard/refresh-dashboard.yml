@@ -15,8 +15,8 @@ docs: |-
   the current snapshot, and pushes it to every browser connected to
   `GET /api/v1/dashboard/stream` as a `dashboard` SSE event.
 
-  The new snapshot is also returned in the standard envelope, so a script can use it without
-  opening the stream:
+  This is the only way the dataset changes (the web UI has no button for it). The new snapshot
+  is also returned in the standard envelope, so a script can use it without opening the stream:
 
   ```json
   { "success": true, "type": "success", "message": "Successful.", "data": { ... } }

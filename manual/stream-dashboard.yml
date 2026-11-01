@@ -28,8 +28,8 @@ docs: |-
   ```
 
   The first `event:dashboard` arrives immediately (current snapshot). Run
-  `Refresh Dashboard` in another tab — or press the **New data** button in the web UI — and a new
-  `event:dashboard` is appended to the same stream within a moment.
+  `Refresh Dashboard` in another tab and a new `event:dashboard` is appended to the same stream
+  within a moment.
 
   Press **Cancel** in Bruno to close the stream.
 
