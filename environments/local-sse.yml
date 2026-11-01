@@ -1,5 +1,5 @@
-name: local - cloud
+name: local-sse
 variables:
   - name: endpoint
-    value: https://ag-e885f2d745064887a1c69438a79ce54e.ecs.ap-southeast-7.on.aws
+    value: http://localhost:8080
     description: Spring Boot backend running locally (mvnw spring-boot:run)
