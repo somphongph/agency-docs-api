@@ -1,0 +1,5 @@
+name: pull
+variables:
+  - name: endpoint
+    value: http://localhost:8081
+    description: Spring Boot backend running locally (mvnw spring-boot:run)
