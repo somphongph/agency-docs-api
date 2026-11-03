@@ -94,7 +94,9 @@ settings:
   forwardAuthorizationHeader: true
 
 docs: |-
-  Returns a brand new random dataset on every call (no database, nothing cached).
+  Returns the current dashboard snapshot (no database, nothing cached). The numbers stay the
+  same until `Refresh Dashboard` is called; every refresh is pushed to browsers over
+  `GET /api/v1/dashboard/stream` (SSE).
 
   ## Envelope
 
@@ -116,4 +118,4 @@ docs: |-
 
   The tests below verify the contract, including the OVERALL invariant.
 
-  Send the request twice to see that every call generates fresh numbers.
+  Send it twice to confirm the snapshot is stable, then run `Refresh Dashboard` and send it again to see new numbers.

@@ -9,7 +9,9 @@
 agency-docs-api/
 ├─ opencollection.yml          # collection: "Agency Dashboard API" + default environment = local
 ├─ environments/local.yml      # baseUrl = http://localhost:8080
-├─ dashboard/get-dashboard.yml # GET /api/v1/dashboard + 8 assertions
+├─ dashboard/get-dashboard.yml # GET  /api/v1/dashboard          + 8 assertions
+├─ dashboard/refresh-dashboard.yml # POST /api/v1/dashboard/refresh + 4 assertions
+├─ manual/stream-dashboard.yml # GET  /api/v1/dashboard/stream (SSE, app only — ไม่รันใน CI)
 ├─ README.md
 └─ screenshots/
 ```
@@ -29,8 +31,8 @@ agency-docs-api/
 ```bash
 # ต้องรันที่ root ของ collection และ backend ต้องรันอยู่ (port 8080)
 cd agency-docs-api
-npx @usebruno/cli run              # ใช้ default environment = local (ตั้งไว้ใน opencollection.yml)
-npx @usebruno/cli run --env local  # ระบุ environment เองก็ได้ ผลเหมือนกัน
+npx @usebruno/cli run dashboard            # รันเฉพาะ request ที่จบได้ (get + refresh) — ใช้ใน CI
+npx @usebruno/cli run dashboard --env local # ระบุ environment เองก็ได้ ผลเหมือนกัน
 ```
 
 ### สิ่งที่ collection ตรวจ (`dashboard/get-dashboard.yml`)
@@ -46,11 +48,33 @@ npx @usebruno/cli run --env local  # ระบุ environment เองก็ไ
 | daily ≤ mtd ≤ ytd | ค่าที่เล็กกว่ารวมอยู่ในค่าที่ใหญ่กว่าเสมอ (ทั้ง Case และ ANP) |
 | OVERALL = Σ region | ทุกกลุ่ม × ทุกช่วง ตรงกับผลรวมของ 8 region แบบ exact (คิดเป็นสตางค์/ร้อยละของ mb) |
 
-> ต้องการดูว่า "สุ่มใหม่ทุกครั้ง" จริง ให้กด Send สองครั้งแล้วเทียบตัวเลข — ค่าจะเปลี่ยนทุกครั้ง (timestamp อาจเท่ากันได้ถ้าอยู่ในวินาทีเดียวกัน)
+และ `dashboard/refresh-dashboard.yml` (POST) ตรวจว่า: ตอบ 200 + envelope, snapshot ครบ 8 region,
+`updatedAt` เป็น +07:00 และ invariant `OVERALL = Σ region` ยังถูกต้องหลังสุ่มใหม่ (4 assertions)
+
+> `GET` คืน snapshot เดิมทุกครั้ง (กด Send ซ้ำตัวเลขจะเท่าเดิม) — ตัวเลขจะเปลี่ยนเมื่อยิง
+> `POST /api/v1/dashboard/refresh` ซึ่งจะ push event ไปยังทุกเบราว์เซอร์ที่ต่อ
+> `GET /api/v1/dashboard/stream` (SSE) ด้วย
+
+## SSE (live updates)
+
+หน้าเว็บไม่ poll แล้ว แต่ต่อ `GET /api/v1/dashboard/stream` ค้างไว้ (event name `dashboard`,
+payload เป็น envelope เดียวกัน) ลองดูด้วย curl:
+
+```bash
+curl -N -H 'Accept: text/event-stream' http://localhost:8080/api/v1/dashboard/stream
+# อีก terminal: ยิง refresh แล้วดู event ใหม่โผล่ใน stream
+curl -X POST http://localhost:8080/api/v1/dashboard/refresh
+```
+
+- **Bruno app**: เปิด `manual / Stream Dashboard (SSE)` → Send → จะเห็น event ไหลเข้ามา realtime
+  (กด Cancel เพื่อปิด) ไฟล์นี้อยู่ใน `manual/` และไม่มี assertion เพราะ stream ไม่มีจุด "จบ"
+- **Bruno CLI 4.3.0**: ไม่ skip request ที่เป็น SSE (ทดสอบแล้ว: รันแล้วค้างจน timeout) จึงต้องรัน
+  เฉพาะ `dashboard` — `npx @usebruno/cli run dashboard`
+- **CI/สคริปต์**: ใช้ curl ข้างบน หรือ parseInt จาก `POST /refresh` แทน
 
 ## ภาพหน้าจอ
 
-| สถานะปกติ (อัปเดตทุก 5 วินาที) | เมื่อ API ล่ม: คงข้อมูลล่าสุด + แจ้งเตือน |
+| สถานะปกติ (อัปเดตแบบ live ผ่าน SSE) | เมื่อ API ล่ม: คงข้อมูลล่าสุด + แจ้งเตือน |
 |---|---|
 | ![Dashboard](screenshots/dashboard.png) | ![Error state](screenshots/dashboard-error.png) |
 
