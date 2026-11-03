@@ -9,7 +9,7 @@
 agency-docs-api/
 ├─ opencollection.yml          # collection: "Agency Dashboard API" + default environment = local
 ├─ environments/local.yml      # baseUrl = http://localhost:8080
-├─ dashboard/get-dashboard.yml # GET /api/v1/dashboard + 7 assertions
+├─ dashboard/get-dashboard.yml # GET /api/v1/dashboard + 8 assertions
 ├─ README.md
 └─ screenshots/
 ```
@@ -39,7 +39,8 @@ npx @usebruno/cli run --env local  # ระบุ environment เองก็ไ
 |---|---|
 | responds with 200 and JSON | endpoint พร้อมใช้งานและ content-type ถูกต้อง |
 | is not cached | `Cache-Control: no-store` (กัน browser/CDN cache ข้อมูลเก่า) |
-| Asia/Bangkok offset | `updatedAt` ลงท้าย `+07:00` และ parse เป็นวันที่ได้ |
+| standard envelope | ทุก response ห่อด้วย `{ success, type, message, data }` และ payload อยู่ใน `data` |
+| Asia/Bangkok offset | `data.updatedAt` ลงท้าย `+07:00` และ parse เป็นวันที่ได้ |
 | regions + OVERALL | 8 region ตามลำดับ BKK-A … Other และมีแถว OVERALL |
 | cases / ANP | case เป็นจำนวนเต็ม ≥ 0, ANP ≥ 0 และมีทศนิยม 2 ตำแหน่ง |
 | daily ≤ mtd ≤ ytd | ค่าที่เล็กกว่ารวมอยู่ในค่าที่ใหญ่กว่าเสมอ (ทั้ง Case และ ANP) |

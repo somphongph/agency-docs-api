@@ -5,30 +5,17 @@ info:
 
 http:
   method: GET
-  url: "{{baseUrl}}/api/v1/dashboard"
+  url: "{{endpoint}}/api/v1/dashboard"
   headers:
     - name: Accept
       value: application/json
-
-docs: |-
-  Returns a brand new random dataset on every call (no database, nothing cached).
-
-  ## Contract
-
-  - `updatedAt`: ISO-8601 with the Asia/Bangkok (+07:00) offset
-  - `regions`: 8 regions in a fixed order, each with `submit` / `approved` / `pending`
-  - every status group has `daily` / `mtd` / `ytd`, each with `cases` (integer >= 0) and `anp` (mb, 2 decimals)
-  - `overall`: the same row shape, equal to the column-by-column sum of every region
-
-  The tests below verify the contract, including the OVERALL invariant.
-
-  Send the request twice to see that every call generates fresh numbers.
 
 runtime:
   scripts:
     - type: tests
       code: |-
-        const body = res.getBody();
+        const envelope = res.getBody();
+        const body = envelope.data;
         const groups = ['submit', 'approved', 'pending'];
         const periods = ['daily', 'mtd', 'ytd'];
         const expectedRegions = ['BKK-A', 'BKK-B', 'Central', 'West', 'South', 'North', 'Northeast', 'Other'];
@@ -43,6 +30,13 @@ runtime:
 
         test('is not cached', function () {
           expect(res.getHeader('cache-control')).to.contain('no-store');
+        });
+
+        test('wraps the payload in the standard envelope', function () {
+          expect(envelope.success).to.equal(true);
+          expect(envelope.type).to.equal('success');
+          expect(envelope.message).to.equal('Successful.');
+          expect(body).to.be.an('object');
         });
 
         test('uses the Asia/Bangkok offset for updatedAt', function () {
@@ -91,3 +85,35 @@ runtime:
             });
           });
         });
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+  forwardAuthorizationHeader: true
+
+docs: |-
+  Returns a brand new random dataset on every call (no database, nothing cached).
+
+  ## Envelope
+
+  Every agency-api response uses `{ success, type, message, data }`; the dashboard
+  payload is in `data`:
+
+  ```json
+  { "success": true, "type": "success", "message": "Successful.", "data": { ... } }
+  ```
+
+  Errors use the same shape with `success: false`, a `type` such as `not_found`, and `data: null`.
+
+  ## Contract
+
+  - `data.updatedAt`: ISO-8601 with the Asia/Bangkok (+07:00) offset
+  - `data.regions`: 8 regions in a fixed order, each with `submit` / `approved` / `pending`
+  - every status group has `daily` / `mtd` / `ytd`, each with `cases` (integer >= 0) and `anp` (mb, 2 decimals)
+  - `data.overall`: the same row shape, equal to the column-by-column sum of every region
+
+  The tests below verify the contract, including the OVERALL invariant.
+
+  Send the request twice to see that every call generates fresh numbers.
